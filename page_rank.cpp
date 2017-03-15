@@ -56,14 +56,25 @@ void iterate_slave(float *pageranks, int n, int chunk_size, float *sub_pageranks
 }
 
 
-void iterate_master(float *pageranks, int n, int chunk_size, float *sub_matrix, float *sub_pageranks) {
+void iterate_master(float *matrix, float *pageranks, int n, int chunk_size, int left_chunk_size,
+                    float *sub_matrix, float *sub_pageranks) {
 
     MPI_Bcast(pageranks, n, MPI_FLOAT, 0, MPI_COMM_WORLD);
-
     multiply(sub_matrix, pageranks, n, chunk_size, sub_pageranks);
 
-    MPI_Gather(sub_pageranks, chunk_size, MPI_FLOAT, pageranks, chunk_size, MPI_FLOAT, 0, MPI_COMM_WORLD);
+    if (left_chunk_size > 0) {
+        float left_pagerank[left_chunk_size];
 
+        for (int chunk = left_chunk_size; chunk > 0; --chunk) {
+            left_pagerank[left_chunk_size - chunk] = multiply_vectors(&matrix[n * (n - chunk)], pageranks, n);
+        }
+
+        for (int j = 0; j < left_chunk_size; ++j) {
+            pageranks[n - (left_chunk_size - j)] = left_pagerank[j];
+        }
+    }
+
+    MPI_Gather(sub_pageranks, chunk_size, MPI_FLOAT, pageranks, chunk_size, MPI_FLOAT, 0, MPI_COMM_WORLD);
     normalize_pageranks(pageranks, n);
 }
 
@@ -101,6 +112,7 @@ void evaluate_master(const char *matrix_file, const int world_size, const int it
     n = read_matrix(matrix_file, matrix); //read from file
 
     int chunk_size = n / world_size;
+    int left_chunk_size = n % world_size;
 
     float *pageranks = new float[n];
     float *sub_matrix = new float[chunk_size * n];
@@ -112,7 +124,7 @@ void evaluate_master(const char *matrix_file, const int world_size, const int it
     MPI_Scatter(matrix, chunk_size * n, MPI_FLOAT, sub_matrix, chunk_size * n, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
     for (int i = 0; i < iterations; ++i) {
-        iterate_master(pageranks, n, chunk_size, sub_matrix, sub_pageranks);
+        iterate_master(matrix, pageranks, n, chunk_size, left_chunk_size, sub_matrix, sub_pageranks);
     }
     print_vector(pageranks, n);
 
@@ -164,9 +176,9 @@ void print_vector(const float *vector, int size) {
 
     printf("( ");
     for (int i = 0; i < size - 1; ++i) {
-        printf("%4.3f\t", vector[i]);
+        printf("%6.6f\t", vector[i]);
     }
-    printf("%0.3f )\n", vector[size - 1]);
+    printf("%0.6f )\n", vector[size - 1]);
 }
 
 
