@@ -47,49 +47,11 @@ void normalize_pageranks(float *&pageranks, int n) {
 }
 
 
-int main(int argc, char **argv) {
+void iterate(int iterations, float *pageranks, float *matrix, int n,
+             int world_size, float *sub_pageranks, float *sub_matrix, int rank) {
 
-    const int iterations = 1000;
-
-    int rank = 0;
-    int world_size = 0;
-
-    int n = 0;
-    int chunk_size = 0;
-    int left_chunk_size = 0;
-
-    float *matrix = nullptr;
-    float *pageranks = nullptr;
-    float *sub_matrix = nullptr;
-    float *sub_pageranks = nullptr;
-
-    MPI_Init(&argc, &argv);
-
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-    if (rank == 0) {
-        n = read_matrix(argv[1], matrix);
-        left_chunk_size = n % world_size;
-    }
-
-    MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-    chunk_size = n / world_size;
-
-    pageranks = new float[n];
-    sub_matrix = new float[chunk_size * n];
-    sub_pageranks = new float[chunk_size];
-
-    if (rank == 0) {
-        init_pageranks(n, pageranks);
-    }
-
-    if (rank == 0) {
-        MPI_Scatter(matrix, chunk_size * n, MPI_FLOAT, sub_matrix, chunk_size * n, MPI_FLOAT, 0, MPI_COMM_WORLD);
-    } else {
-        MPI_Scatter(sub_matrix, chunk_size * n, MPI_FLOAT, sub_matrix, chunk_size * n, MPI_FLOAT, 0, MPI_COMM_WORLD);
-    }
+    int chunk_size = n / world_size;
+    int left_chunk_size = n % world_size;
 
     for (int i = 0; i < iterations; ++i) {
         MPI_Bcast(pageranks, n, MPI_FLOAT, 0, MPI_COMM_WORLD);
@@ -115,8 +77,53 @@ int main(int argc, char **argv) {
         if (rank == 0) {
             normalize_pageranks(pageranks, n);
         }
-
     }
+}
+
+
+int main(int argc, char **argv) {
+
+    const int iterations = 1000;
+
+    int rank = 0;
+    int world_size = 0;
+
+    int n = 0;
+    int chunk_size = 0;
+
+    float *matrix = nullptr;
+    float *pageranks = nullptr;
+    float *sub_matrix = nullptr;
+    float *sub_pageranks = nullptr;
+
+    MPI_Init(&argc, &argv);
+
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    if (rank == 0) {
+        n = read_matrix(argv[1], matrix);
+    }
+
+    MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    chunk_size = n / world_size;
+
+    pageranks = new float[n];
+    sub_matrix = new float[chunk_size * n];
+    sub_pageranks = new float[chunk_size];
+
+    if (rank == 0) {
+        init_pageranks(n, pageranks);
+    }
+
+    if (rank == 0) {
+        MPI_Scatter(matrix, chunk_size * n, MPI_FLOAT, sub_matrix, chunk_size * n, MPI_FLOAT, 0, MPI_COMM_WORLD);
+    } else {
+        MPI_Scatter(sub_matrix, chunk_size * n, MPI_FLOAT, sub_matrix, chunk_size * n, MPI_FLOAT, 0, MPI_COMM_WORLD);
+    }
+
+    iterate(iterations, pageranks, matrix, n, world_size, sub_pageranks, sub_matrix, rank);
 
     if (rank == 0) {
         print_vector(pageranks, n);
