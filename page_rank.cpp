@@ -4,6 +4,8 @@
 #include <cstring>
 #include <mpi.h>
 #include <algorithm>
+#include <cmath>
+#include <vector>
 
 
 int read_matrix(const char *file, float *&matrix);
@@ -12,6 +14,7 @@ void print_vector(const float *vector, const int n);
 
 void print_matrix(const float *matrix, const int n);
 
+void writeMatrix(char *file, float* matrix, int size) ;
 
 float multiply_vectors(const float *vec1, const float *vec2, const int n) {
     float result = 0;
@@ -46,16 +49,17 @@ void normalize_pageranks(float *&pageranks, int n) {
     }
 }
 
-
 int main(int argc, char **argv) {
+
+    double start, end;
 
     const int iterations = 1000;
 
-    int rank = 0;
+    int rank = 0; // ранк текущего процесса
     int world_size = 0;
 
-    int n = 0;
-    int chunk_size = 0;
+    int n = 0; // размер матрицы n x n
+    int chunk_size = 0; //
     int left_chunk_size = 0;
 
     float *matrix = nullptr;
@@ -88,10 +92,12 @@ int main(int argc, char **argv) {
     if (rank == 0) {
         MPI_Scatter(matrix, chunk_size * n, MPI_FLOAT, sub_matrix, chunk_size * n, MPI_FLOAT, 0, MPI_COMM_WORLD);
     } else {
+        // приняли часть матрицы
         MPI_Scatter(sub_matrix, chunk_size * n, MPI_FLOAT, sub_matrix, chunk_size * n, MPI_FLOAT, 0, MPI_COMM_WORLD);
     }
 
     for (int i = 0; i < iterations; ++i) {
+
         MPI_Bcast(pageranks, n, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
         multiply(sub_matrix, pageranks, n, chunk_size, sub_pageranks);
@@ -115,11 +121,10 @@ int main(int argc, char **argv) {
         if (rank == 0) {
             normalize_pageranks(pageranks, n);
         }
-
     }
 
     if (rank == 0) {
-        print_vector(pageranks, n);
+//        print_vector(pageranks, n);
     }
 
     delete[] pageranks;
@@ -134,11 +139,58 @@ int main(int argc, char **argv) {
 }
 
 
+float *generateMatrix(size_t n) {
+
+    srand((unsigned int) time(0));
+
+    float *matrix = new float[n * n];
+    float *v = new float[n];
+
+    memset(v, 0, sizeof(float) * n);
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            if (i == j) {
+                v[j] = 0;
+                continue;
+            }
+            v[j] = std::floor((float) rand() / (RAND_MAX / n));
+        }
+        normalize_pageranks(v, (int) n);
+        memcpy(matrix + i * n, v, sizeof(float) * n);
+    }
+
+    delete[] v;
+
+    return matrix;
+}
+
+
+void writeMatrix(char *file, float* matrix, int size) {
+
+    std::ofstream fos(file);
+
+    fos << size << "\n";
+
+    for (int i = 0; i < size; ++i) {
+
+        for (int j = 0; j < size; ++j) {
+
+            fos << matrix[i * size + j] << "\t\t";
+        }
+
+        fos << std::endl;
+    }
+
+    fos.close();
+}
+
+
 void print_matrix(const float *matrix, const int n) {
 
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < n; ++j) {
-            printf("%8.3f", matrix[i * n + j]);
+            printf("%12.6f", matrix[i * n + j]);
         }
         printf("\n");
     }
@@ -173,4 +225,6 @@ int read_matrix(const char *file, float *&matrix) {
     fin.close();
     return size;
 }
+
+
 
