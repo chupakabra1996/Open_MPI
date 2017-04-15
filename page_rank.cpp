@@ -14,7 +14,7 @@ void print_vector(const float *vector, const int n);
 
 void print_matrix(const float *matrix, const int n);
 
-void writeMatrix(char *file, float* matrix, int size) ;
+void writeMatrix(char *file, float *matrix, int size);
 
 float multiply_vectors(const float *vec1, const float *vec2, const int n) {
     float result = 0;
@@ -89,12 +89,7 @@ int main(int argc, char **argv) {
         init_pageranks(n, pageranks);
     }
 
-    if (rank == 0) {
-        MPI_Scatter(matrix, chunk_size * n, MPI_FLOAT, sub_matrix, chunk_size * n, MPI_FLOAT, 0, MPI_COMM_WORLD);
-    } else {
-        // приняли часть матрицы
-        MPI_Scatter(sub_matrix, chunk_size * n, MPI_FLOAT, sub_matrix, chunk_size * n, MPI_FLOAT, 0, MPI_COMM_WORLD);
-    }
+    MPI_Scatter(matrix, chunk_size * n, MPI_FLOAT, sub_matrix, chunk_size * n, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
     for (int i = 0; i < iterations; ++i) {
 
@@ -124,7 +119,7 @@ int main(int argc, char **argv) {
     }
 
     if (rank == 0) {
-//        print_vector(pageranks, n);
+        print_vector(pageranks, n);
     }
 
     delete[] pageranks;
@@ -166,7 +161,7 @@ float *generateMatrix(size_t n) {
 }
 
 
-void writeMatrix(char *file, float* matrix, int size) {
+void writeMatrix(char *file, float *matrix, int size) {
 
     std::ofstream fos(file);
 
