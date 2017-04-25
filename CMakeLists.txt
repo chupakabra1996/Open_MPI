@@ -9,5 +9,5 @@ set(CMAKE_C_COMPILER /usr/local/open-mpi/bin/mpicc)
 set(CMAKE_CXX_COMPILER /usr/local/open-mpi/bin/mpicxx)
 
 
-set(SOURCE_FILES page_rank.cpp test.cpp page_rank_single.cpp)
+set(SOURCE_FILES bitonic_sort.cpp)
 add_executable(open_mpi ${SOURCE_FILES})
