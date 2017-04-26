@@ -3,11 +3,14 @@
 #include <cstdio>
 #include <iostream>
 
+// See http://www.iti.fh-flensburg.de/lang/algorithmen/sortieren/bitonic/oddn.htm
+
 using namespace std;
 
-// constants
-#define UP true
-#define DOWN false
+// Directions
+#define ASC true
+#define DESC false
+
 
 //pre declarations
 void print_array(int *arr, int n);
@@ -15,68 +18,140 @@ void print_array(int *arr, int n);
 void read_array(int *arr, int n);
 
 
-void compareAndSwap(int *seq, int seq_length, bool dir) {
+class BitonicSort {
+public:
 
-    int middle = seq_length / 2;
+    // constructor
+    BitonicSort(int *seq, int length) :
+            seq(seq), length(length) {}
 
-    // compare & swap a[i] <-> a[i + n/2]
-    #pragma omp parallel for
-    for (int i = 0; i < middle; i++) {
-        if (dir == (seq[i] > seq[i + middle])) {
-            swap(seq[i], seq[i + middle]);
+    BitonicSort() : BitonicSort(0, 0) {}
+
+    // sort sequence in some order
+    void sort(bool direction) {
+        bitonic_sort(0, length, direction);
+    }
+
+
+    void sort() {
+        sort(ASC);
+    }
+
+
+    int *get_sequence() const {
+        return seq;
+    }
+
+    int get_length() const {
+        return length;
+    }
+
+    // destructor
+    ~BitonicSort() {
+        if (seq) delete[] seq;
+        length = 0;
+        seq = 0;
+    }
+
+private:
+    int *seq; // sequence, array
+    int length;
+
+
+    void bitonic_sort(int low, int seq_length, bool direction) {
+
+        if (seq_length > 1) {
+
+            int middle = seq_length / 2;
+
+            // recursive calls in parallel
+            // split sequence into bitonic ones (every sequence of 2 elements is bitonic)
+            #pragma omp parallel for
+            for (int i = 0; i < 2; ++i) {
+                if (i == 0) bitonic_sort(low, middle, !direction);
+                else bitonic_sort(low + middle, seq_length - middle, direction);
+            }
+
+            // merge bitonic sequences, in other words, sort them considering direction
+            merge(low, seq_length, direction);
         }
     }
-}
 
-// sort bitonic sequence in 'dir' order
-void merge(int *seq, int seq_length, bool dir) {
 
-    if (seq_length == 1) return;
+    // sorts sequence in the 'direction' order
+    void merge(int low, int seq_length, bool direction) {
 
-    compareAndSwap(seq, seq_length, dir);
+        if (seq_length > 1) {
 
-    int middle = seq_length / 2;
+            // calculate the nearest to the 'seq_length' value, so
+            // it's power of 2 ( 2^k = max & max < seq_length )
+            int max = max_power_of_two_value_below(seq_length);
 
-    #pragma omp parallel for
-    for (int i = 0; i < 2; i++) {
-        if (i == 0) merge(seq, middle, dir);
-        else merge(&seq[middle], seq_length - middle, dir);
+            // compare and swap in different threads
+            // instead of comparing a[i] with a[i + n/2],
+            // we're using a little bit other approach now
+            // See the link above
+            #pragma omp parallel for
+            for (int i = low; i < low + seq_length - max; i++) {
+                compare_and_swap(i, i + max, direction);
+            }
+
+            // recursive merging in parallel
+            #pragma omp parallel for
+            for (int i = 0; i < 2; ++i) {
+                if (i == 0) merge(low, max, direction);
+                else merge(low + max, seq_length - max, direction);
+            }
+
+        }
     }
-}
 
 
-// FIXME: support odd
-void bitonicSort(int *seq, int seq_length, bool dir) {
+    // compare two sequnce values and swap them if needed
+    void compare_and_swap(int i, int j, bool direction) {
 
-    if (seq_length == 1) return;
-
-    // recursive calls in different threads
-    #pragma omp parallel for
-    for (int i = 0; i < 2; i++) {
-        if (i == 0) bitonicSort(seq, seq_length / 2, UP); // ASC order
-        else bitonicSort(&seq[seq_length / 2], seq_length - seq_length / 2, DOWN); // DESC order
+        if (direction == (seq[i] > seq[j])) {
+            swap(seq[i], seq[j]);
+        }
     }
 
-    merge(seq, seq_length, dir);
-}
+    int max_power_of_two_value_below(int n) {
+        int k = 1;
+        while (k > 0 && k < n) {
+            k <<= 1;
+        }
+        return k >> 1;
+    }
+};
 
 
+/*
+ * Usage, i.e `g++ -o bitonic_sort -fopenmp bitonic_sort.cpp`
+ *
+ * ./bitonic_sort < input.txt
+ *
+ * where input.txt:
+ * 5
+ * 5 4 3 2 1
+ *
+*/
 int main() {
+
     int n;
     cin >> n;
 
     int *arr = new int[n];
     read_array(arr, n);
 
-    cout << "Entered array:\n";
+    cout << "*** input array ***" << endl;
     print_array(arr, n);
 
-    bitonicSort(arr, n, UP);
+    BitonicSort bitonicSort(arr, n);
 
-    cout << "Sorted array:\n";
+    bitonicSort.sort(ASC);
+
+    cout << "*** sorted array ***" << endl;
     print_array(arr, n);
-
-    delete[] arr;
 
     return 0;
 }
