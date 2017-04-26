@@ -6,8 +6,8 @@
 using namespace std;
 
 // constants
-const bool UP = true;
-const bool DOWN = false;
+#define UP true
+#define DOWN false
 
 //pre declarations
 void print_array(int *arr, int n);
