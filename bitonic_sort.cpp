@@ -3,14 +3,11 @@
 #include <cstdio>
 #include <iostream>
 
-// See http://www.iti.fh-flensburg.de/lang/algorithmen/sortieren/bitonic/oddn.htm
-
 using namespace std;
 
 // Directions
 #define ASC true
 #define DESC false
-
 
 //pre declarations
 void print_array(int *arr, int n);
@@ -28,15 +25,9 @@ public:
     BitonicSort() : BitonicSort(0, 0) {}
 
     // sort sequence in some order
-    void sort(bool direction) {
+    void sort(bool direction = DESC) {
         bitonic_sort(0, length, direction);
     }
-
-
-    void sort() {
-        sort(ASC);
-    }
-
 
     int *get_sequence() const {
         return seq;
@@ -87,10 +78,6 @@ private:
             // it's power of 2 ( 2^k = max & max < seq_length )
             int max = max_power_of_two_value_below(seq_length);
 
-            // compare and swap in different threads
-            // instead of comparing a[i] with a[i + n/2],
-            // we're using a little bit other approach now
-            // See the link above
             #pragma omp parallel for
             for (int i = low; i < low + seq_length - max; i++) {
                 compare_and_swap(i, i + max, direction);
@@ -128,7 +115,7 @@ private:
 /*
  * Usage, i.e `g++ -o bitonic_sort -fopenmp bitonic_sort.cpp`
  *
- * ./bitonic_sort < input.txt
+ * `./bitonic_sort < input.txt`
  *
  * where input.txt:
  * 5
@@ -148,7 +135,7 @@ int main() {
 
     BitonicSort bitonicSort(arr, n);
 
-    bitonicSort.sort(ASC);
+    bitonicSort.sort();
 
     cout << "*** sorted array ***" << endl;
     print_array(arr, n);
