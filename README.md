@@ -1,5 +1,6 @@
-# open_mpi
-OpenMPI / OpenMP algorithms implementations:
+# OpenMP and MPI alogrithms
+
+Implementation of MPI and OpenMP algorithms, such as:
 - Bitonic sort (OpenMP)
 - Pagerank (MPI)
 
